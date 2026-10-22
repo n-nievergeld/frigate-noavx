@@ -1,0 +1,105 @@
+name: Build and publish custom Frigate
+
+on:
+  workflow_dispatch:
+    inputs:
+      frigate_version:
+        description: "Frigate version"
+        required: true
+        default: "0.18.2"
+        type: string
+
+      tensorflow_version:
+        description: "TensorFlow version"
+        required: true
+        default: "2.19.1"
+        type: string
+
+      build_jobs:
+        description: "Number of parallel Bazel jobs"
+        required: true
+        default: "2"
+        type: choice
+        options:
+          - "2"
+          - "3"
+          - "4"
+
+      local_ram_resources:
+        description: "Bazel local RAM resources (MB)"
+        required: true
+        default: "4096"
+        type: choice
+        options:
+          - "4096"
+          - "6144"
+          - "8192"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      FRIGATE_VERSION: ${{ inputs.frigate_version }}
+      TF_VERSION: ${{ inputs.tensorflow_version }}
+      BUILD_JOBS: ${{ inputs.build_jobs }}
+      LOCAL_RAM_RESOURCES: ${{ inputs.local_ram_resources }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Build custom image
+        run: |
+          chmod +x ./build.sh
+
+          echo "Frigate: ${FRIGATE_VERSION}"
+          echo "TensorFlow: ${TF_VERSION}"
+          echo "Bazel jobs: ${BUILD_JOBS}"
+          echo "Bazel RAM: ${LOCAL_RAM_RESOURCES} MB"
+
+          CI=true ./build.sh \
+            "${FRIGATE_VERSION}" \
+            "${TF_VERSION}" \
+            "${BUILD_JOBS}" \
+            "${LOCAL_RAM_RESOURCES}"
+
+          docker image inspect \
+            "frigate-custom:${FRIGATE_VERSION}"
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image to GHCR
+        env:
+          GH_USERNAME: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+
+          IMAGE="ghcr.io/${GH_USERNAME,,}/frigate-custom"
+          LOCAL_IMAGE="frigate-custom:${FRIGATE_VERSION}"
+          VERSION_TAG="${FRIGATE_VERSION}-tf${TF_VERSION}"
+
+          echo "Pushing ${IMAGE}:${VERSION_TAG}"
+
+          docker tag "${LOCAL_IMAGE}" "${IMAGE}:${VERSION_TAG}"
+          docker push "${IMAGE}:${VERSION_TAG}"
+
+          docker tag "${LOCAL_IMAGE}" "${IMAGE}:latest"
+          docker push "${IMAGE}:latest"
+
+          echo "Published:"
+          echo "${IMAGE}:${VERSION_TAG}"
+          echo "${IMAGE}:latest"

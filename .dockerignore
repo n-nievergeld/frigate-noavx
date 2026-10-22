@@ -1,0 +1,6 @@
+# The current Dockerfile fetches TensorFlow source inside the build stage and
+# only COPYs the wheel from that stage. No local project files are needed in
+# the Docker build context other than the Dockerfile itself.
+**
+!Dockerfile
+
