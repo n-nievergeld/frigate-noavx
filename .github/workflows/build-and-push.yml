@@ -58,7 +58,23 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+      - name: Free disk space
+        uses: endersonmenezes/free-disk-space@v4
+        with:
+          remove_android: true
+          remove_dotnet: true
+          remove_haskell: true
+          remove_tool_cache: true
+          rm_cmd: "rm"
 
+      - name: Check available disk space
+        run: |
+          echo "Disk space:"
+          df -h /
+          echo "Inode usage:"
+          df -ih /
+          echo "Docker disk usage:"
+          docker system df || true
       - name: Build custom image
         run: |
           chmod +x ./build.sh
