@@ -52,7 +52,9 @@ jobs:
       TF_VERSION: ${{ inputs.tensorflow_version }}
       BUILD_JOBS: ${{ inputs.build_jobs }}
       LOCAL_RAM_RESOURCES: ${{ inputs.local_ram_resources }}
-
+    defaults:
+      run:
+        working-directory: ./frigate-custom
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
