@@ -49,8 +49,11 @@ WORKDIR /src/tensorflow
 # Use the Bazel version specified by this exact TensorFlow source release.
 # This avoids silently building a different TensorFlow version with a stale Bazel.
 RUN set -eux; \
-    BAZEL_VERSION="$(tr -d '\r\n' < .bazelversion)"; \
-    test -n "$BAZEL_VERSION"; \
+    BAZEL_VERSION="$(head -n 1 .bazelversion | sed 's/#.*//' | tr -d '\r' | xargs)"; \
+    case "$BAZEL_VERSION" in \
+      ''|*[!0-9.]*) echo "Invalid Bazel version: '$BAZEL_VERSION'" >&2; exit 1 ;; \
+    esac; \
+    echo "Using Bazel version: ${BAZEL_VERSION}"; \
     curl -fsSL \
       "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-x86_64" \
       -o /usr/local/bin/bazel; \
